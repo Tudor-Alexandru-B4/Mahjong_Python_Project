@@ -1,3 +1,5 @@
+import random
+
 from PIL import Image, ImageTk
 import tkinter as tk
 import os
@@ -59,12 +61,60 @@ def compute_tile_list(path, exception_tags):
             for j in range(copies):
                 button_list.append(tk.Button(root, image=image_list[i],
                                              command=lambda index=len(button_list): select(index),
-                                             height=button_size, width=button_size, relief='sunken'))
+                                             height=button_size, width=button_size, relief='sunken', border="0"))
                 tagged_buttons.append((tags[i], button_list[-1]))
 
     except Exception as e:
         print(e)
         return None
+
+
+def compute_tile_data_structure(path):
+    try:
+        if not os.path.isdir(path):
+            raise IOError("Path does not point to a directory")
+
+        levels = [file for file in os.listdir(path)]
+        print(levels)
+        selected_level = "x.txt" #random.choice(levels)
+
+        tile_structure = []
+        fine_matrix = []
+        for line in open(os.path.join(path, selected_level)):
+            if not line.startswith("="):
+                fine_matrix.append(list(line.split("\n")[0]))
+            else:
+                tile_structure.append(list(fine_matrix))
+                fine_matrix = []
+
+        if fine_matrix:
+            tile_structure.append(fine_matrix)
+
+        return tile_structure
+
+    except Exception as e:
+        print(e)
+        return None
+
+
+def print_buttons(tile_structure, button_size):
+    unused_buttons = list(button_list)
+    for level in range(len(tile_structure)):
+        for i in range(len(tile_structure[level]) - 1):
+            for j in range(len(tile_structure[level][i]) - 1):
+                char = tile_structure[level][i][j]
+                if char == "@":
+                    button = random.choice(unused_buttons)
+                    button.lift()
+                    unused_buttons.remove(button)
+
+                    index = button_list.index(button)
+                    tile_structure[level][i][j] = index
+                    tile_structure[level][i][j + 1] = index
+                    tile_structure[level][i + 1][j] = index
+                    tile_structure[level][i + 1][j + 1] = index
+
+                    button_list[index].place(x=j / 2 * button_size - level * 7, y=i / 2 * button_size - level * 4)
 
 
 def add_buttons_to_grid():
@@ -87,6 +137,7 @@ img_dir = "tile_images"
 offset = 50
 
 compute_tile_list(img_dir, ['s', 'f'])
-add_buttons_to_grid()
+structure = compute_tile_data_structure("tile_arrangements")
+print_buttons(structure, 75)
 
 root.mainloop()
