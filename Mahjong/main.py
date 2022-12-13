@@ -76,7 +76,7 @@ def compute_tile_data_structure(path):
 
         levels = [file for file in os.listdir(path)]
         print(levels)
-        selected_level = random.choice(levels)
+        selected_level = "x.txt" #random.choice(levels)
 
         tile_structure = []
         fine_matrix = []
