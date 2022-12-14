@@ -5,7 +5,7 @@ import tkinter as tk
 import os
 
 selected_color = "blue"
-selectable_color = "green"
+selectable_color = "yellow green"
 normal_color = "white"
 background_color = "azure4"
 
