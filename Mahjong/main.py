@@ -4,6 +4,11 @@ from PIL import Image, ImageTk
 import tkinter as tk
 import os
 
+selected_color = "blue"
+selectable_color = "green"
+normal_color = "white"
+background_color = "azure4"
+
 first_index = -1
 second_index = -1
 
@@ -14,6 +19,8 @@ tagged_buttons = list()
 structure = list()
 structure_index = list()
 button_size = 75
+
+shuffle_image = None
 
 
 def free_on_top(index):
@@ -58,6 +65,12 @@ def free_tile_space(index):
     structure[level][i + 1][j + 1] = '#'
 
 
+def update_selectable():
+    for index in range(len(button_list)):
+        if button_list[index] != '#' and (free_on_top(index) and (free_to_east(index) or free_to_west(index))):
+            button_list[index]["background"] = selectable_color
+
+
 def select(index):
     global first_index
     global second_index
@@ -67,24 +80,28 @@ def select(index):
 
     if first_index == -1:
         first_index = index
-        tagged_buttons[index][1].configure(background="blue")
+        tagged_buttons[index][1].configure(background=selected_color)
     elif first_index == index:
         first_index = -1
-        tagged_buttons[index][1].configure(background="white")
+        tagged_buttons[index][1].configure(background=normal_color)
+        update_selectable()
     elif second_index == -1:
         second_index = index
-        tagged_buttons[index][1].configure(background="blue")
+        tagged_buttons[index][1].configure(background=selected_color)
 
     if first_index != -1 and second_index != -1:
-        tagged_buttons[first_index][1].configure(background="white")
-        tagged_buttons[second_index][1].configure(background="white")
+        tagged_buttons[first_index][1].configure(background=normal_color)
+        tagged_buttons[second_index][1].configure(background=normal_color)
         if tagged_buttons[first_index][0][:2] == tagged_buttons[second_index][0][:2]:
             free_tile_space(first_index)
             free_tile_space(second_index)
+            button_list[first_index] = '#'
+            button_list[second_index] = '#'
             tagged_buttons[first_index][1].destroy()
             tagged_buttons[second_index][1].destroy()
         first_index = -1
         second_index = -1
+        update_selectable()
 
 
 def compute_tile_list(path, exception_tags):
@@ -149,8 +166,8 @@ def compute_tile_data_structure(path):
         return None
 
 
-def print_buttons():
-    unused_buttons = list(button_list)
+def draw_buttons():
+    unused_buttons = [existing_button for existing_button in button_list if existing_button != '#']
     for level in range(len(structure)):
         for i in range(len(structure[level]) - 1):
             for j in range(len(structure[level][i]) - 1):
@@ -167,7 +184,39 @@ def print_buttons():
                     structure[level][i + 1][j] = str(index)
                     structure[level][i + 1][j + 1] = str(index)
 
-                    button_list[index].place(x=j / 2 * button_size - level * 7, y=i / 2 * button_size - level * 4)
+                    # button_list[index].place(x=j / 2 * button_size - level * 7, y=i / 2 * button_size - level * 4)
+                    button_list[index].place(x=j / 2 * button_size, y=i / 2 * button_size)
+
+    update_selectable()
+
+
+def shuffle_tiles():
+    global first_index
+    global second_index
+    first_index = -1
+    second_index = -1
+
+    for button in button_list:
+        if button != '#':
+            button["background"] = normal_color
+            button.forget()
+
+    for level in range(len(structure)):
+        for i in range(len(structure[level])):
+            for j in range(len(structure[level][i])):
+                if structure[level][i][j] != '#':
+                    structure[level][i][j] = '@'
+
+    draw_buttons()
+
+
+def compute_menu_buttons():
+    global shuffle_image
+    shuffle_image = ImageTk.PhotoImage(Image.open("menu_images/shuffle.png")
+                                                              .resize((button_size, button_size)))
+    shuffle_button = tk.Button(root, image=shuffle_image, command=shuffle_tiles,
+                               height=button_size, width=button_size, relief='raised')
+    shuffle_button.place(x=button_size * 22, y=button_size * 2)
 
 
 def add_buttons_to_grid():
@@ -185,10 +234,12 @@ def add_buttons_to_grid():
 
 root = tk.Tk()
 root.geometry('750x500')
+root.configure(background=background_color)
 img_dir = "tile_images"
 
+compute_menu_buttons()
 compute_tile_list(img_dir, ['s', 'f'])
 compute_tile_data_structure("tile_arrangements")
-print_buttons()
+draw_buttons()
 
 root.mainloop()
