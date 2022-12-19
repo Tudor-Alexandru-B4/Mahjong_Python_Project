@@ -5,7 +5,7 @@ import tkinter as tk
 import os
 
 selected_color = "blue"
-selectable_color = "green"
+selectable_color = "yellow green"
 normal_color = "white"
 background_color = "azure4"
 
@@ -21,6 +21,7 @@ structure_index = list()
 button_size = 75
 
 shuffle_image = None
+restart_image = None
 
 
 def free_on_top(index):
@@ -104,9 +105,9 @@ def select(index):
         update_selectable()
 
 
-def compute_tile_list(path, exception_tags):
+def compute_tile_list(img_dir, exception_tags):
     try:
-        if not os.path.isdir(path):
+        if not os.path.isdir(img_dir):
             raise IOError("Path does not point to a directory")
 
         global tags
@@ -184,7 +185,6 @@ def draw_buttons():
                     structure[level][i + 1][j] = str(index)
                     structure[level][i + 1][j + 1] = str(index)
 
-                    # button_list[index].place(x=j / 2 * button_size - level * 7, y=i / 2 * button_size - level * 4)
                     button_list[index].place(x=j / 2 * button_size, y=i / 2 * button_size)
 
     update_selectable()
@@ -210,6 +210,36 @@ def shuffle_tiles():
     draw_buttons()
 
 
+def restart_game():
+    global first_index
+    global second_index
+    global tags
+    global image_list
+    global button_list
+    global tagged_buttons
+    global structure
+    global structure_index
+    global shuffle_image
+    global restart_image
+
+    for index in range(len(button_list)):
+        if button_list[index] != '#':
+            button_list[index]["background"] = background_color
+
+    first_index = -1
+    second_index = -1
+    tags = list()
+    image_list = list()
+    button_list = list()
+    tagged_buttons = list()
+    structure = list()
+    structure_index = list()
+    shuffle_image = None
+    restart_image = None
+
+    init_game()
+
+
 def compute_menu_buttons():
     global shuffle_image
     shuffle_image = ImageTk.PhotoImage(Image.open("menu_images/shuffle.png")
@@ -218,28 +248,23 @@ def compute_menu_buttons():
                                height=button_size, width=button_size, relief='raised')
     shuffle_button.place(x=button_size * 22, y=button_size * 2)
 
+    global restart_image
+    restart_image = ImageTk.PhotoImage(Image.open("menu_images/restart.png")
+                                       .resize((button_size, button_size)))
+    restart_button = tk.Button(root, image=restart_image, command=restart_game,
+                               height=button_size, width=button_size, relief='raised')
+    restart_button.place(x=button_size * 22, y=button_size * 4)
 
-def add_buttons_to_grid():
-    matrix = list(button_list)
 
-    line = 0
-    col = 0
-    for i in range(len(matrix)):
-        matrix[i].grid(row=line, column=col)
-        line += 1
-        if line == 12:
-            line = 0
-            col += 1
+def init_game():
+    compute_menu_buttons()
+    compute_tile_list("tile_images", ['s', 'f'])
+    compute_tile_data_structure("tile_arrangements")
+    draw_buttons()
 
 
 root = tk.Tk()
 root.geometry('750x500')
 root.configure(background=background_color)
-img_dir = "tile_images"
-
-compute_menu_buttons()
-compute_tile_list(img_dir, ['s', 'f'])
-compute_tile_data_structure("tile_arrangements")
-draw_buttons()
-
+init_game()
 root.mainloop()
