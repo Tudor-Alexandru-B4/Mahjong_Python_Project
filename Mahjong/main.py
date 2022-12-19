@@ -4,6 +4,7 @@ from PIL import Image, ImageTk
 import tkinter as tk
 import os
 
+highlight_color = "yellow"
 selected_color = "blue"
 selectable_color = "yellow green"
 normal_color = "white"
@@ -20,8 +21,18 @@ structure = list()
 structure_index = list()
 button_size = 75
 
+hints_used = None
+shuffles_used = None
+selectable_tile_types = dict()
+removed_pcs = 0
+impossible_arrangement = False
+
+win_screen = None
+lose_screen = None
+hint_image = None
 shuffle_image = None
 restart_image = None
+exit_image = None
 
 
 def free_on_top(index):
@@ -67,9 +78,27 @@ def free_tile_space(index):
 
 
 def update_selectable():
+    global selectable_tile_types
+    global impossible_arrangement
+    selectable_tile_types = dict()
+    lost = True
+
     for index in range(len(button_list)):
         if button_list[index] != '#' and (free_on_top(index) and (free_to_east(index) or free_to_west(index))):
             button_list[index]["background"] = selectable_color
+            button_tag = tagged_buttons[index][0][:2]
+            if button_tag not in selectable_tile_types.keys():
+                selectable_tile_types[button_tag] = 1
+            else:
+                lost = False
+                selectable_tile_types[button_tag] += 1
+
+    if lost is True and removed_pcs < 144:
+        if impossible_arrangement is True and removed_pcs > 2:
+            shuffle_tiles()
+        else:
+            show_lose_screen()
+    impossible_arrangement = False
 
 
 def select(index):
@@ -94,15 +123,24 @@ def select(index):
         tagged_buttons[first_index][1].configure(background=normal_color)
         tagged_buttons[second_index][1].configure(background=normal_color)
         if tagged_buttons[first_index][0][:2] == tagged_buttons[second_index][0][:2]:
-            free_tile_space(first_index)
-            free_tile_space(second_index)
-            button_list[first_index] = '#'
-            button_list[second_index] = '#'
-            tagged_buttons[first_index][1].destroy()
-            tagged_buttons[second_index][1].destroy()
+            remove_pcs()
         first_index = -1
         second_index = -1
         update_selectable()
+
+
+def remove_pcs():
+    free_tile_space(first_index)
+    free_tile_space(second_index)
+    button_list[first_index] = '#'
+    button_list[second_index] = '#'
+    tagged_buttons[first_index][1].destroy()
+    tagged_buttons[second_index][1].destroy()
+
+    global removed_pcs
+    removed_pcs += 2
+    if removed_pcs == len(tagged_buttons):
+        show_win_screen()
 
 
 def compute_tile_list(img_dir, exception_tags):
@@ -168,6 +206,8 @@ def compute_tile_data_structure(path):
 
 
 def draw_buttons():
+    global impossible_arrangement
+
     unused_buttons = [existing_button for existing_button in button_list if existing_button != '#']
     for level in range(len(structure)):
         for i in range(len(structure[level]) - 1):
@@ -187,12 +227,40 @@ def draw_buttons():
 
                     button_list[index].place(x=j / 2 * button_size, y=i / 2 * button_size)
 
+    impossible_arrangement = True
     update_selectable()
+
+
+def give_hint():
+    global hints_used
+    hints_used.set(hints_used.get() + 1)
+
+    for key, value in selectable_tile_types.items():
+        if value > 1:
+            count = 0
+            for index in range(len(button_list)):
+                if button_list[index] != '#' and tagged_buttons[index][0][:2] == key \
+                        and (free_on_top(index) and (free_to_east(index) or free_to_west(index))):
+                    button_list[index]["background"] = highlight_color
+                    count += 1
+
+                if count == 2:
+                    return
 
 
 def shuffle_tiles():
     global first_index
     global second_index
+    global lose_screen
+    global impossible_arrangement
+    global shuffles_used
+
+    if impossible_arrangement is False:
+        shuffles_used.set(shuffles_used.get() + 1)
+
+    if lose_screen is not None:
+        lose_screen.destroy()
+
     first_index = -1
     second_index = -1
 
@@ -219,12 +287,27 @@ def restart_game():
     global tagged_buttons
     global structure
     global structure_index
+    global hints_used
+    global shuffles_used
+    global selectable_tile_types
+    global removed_pcs
+    global impossible_arrangement
+    global win_screen
+    global lose_screen
+    global hint_image
     global shuffle_image
     global restart_image
+    global exit_image
 
     for index in range(len(button_list)):
         if button_list[index] != '#':
-            button_list[index]["background"] = background_color
+            button_list[index].destroy()
+
+    if win_screen is not None:
+        win_screen.destroy()
+
+    if lose_screen is not None:
+        lose_screen.destroy()
 
     first_index = -1
     second_index = -1
@@ -234,29 +317,106 @@ def restart_game():
     tagged_buttons = list()
     structure = list()
     structure_index = list()
+    hints_used.set(0)
+    shuffles_used.set(0)
+    selectable_tile_types = dict()
+    removed_pcs = 0
+    impossible_arrangement = False
+    win_screen = None
+    lose_screen = None
+    hint_image = None
     shuffle_image = None
     restart_image = None
-
+    exit_image = None
     init_game()
 
 
+def exit_game():
+    exit()
+
+
 def compute_menu_buttons():
+    global hint_image
+    hint_image = ImageTk.PhotoImage(Image.open("menu_images/hint.png")
+                                       .resize((button_size, button_size)))
+    hint_button = tk.Button(root, image=hint_image, command=give_hint,
+                               height=button_size, width=button_size, relief='raised')
+    hint_button.place(x=button_size * 22, y=button_size * 2)
+
+    global hints_used
+    hint_label = tk.Label(root, textvariable=hints_used)
+    hint_label.place(x=button_size * 23, y=button_size * 3)
+
     global shuffle_image
     shuffle_image = ImageTk.PhotoImage(Image.open("menu_images/shuffle.png")
                                                               .resize((button_size, button_size)))
     shuffle_button = tk.Button(root, image=shuffle_image, command=shuffle_tiles,
                                height=button_size, width=button_size, relief='raised')
-    shuffle_button.place(x=button_size * 22, y=button_size * 2)
+    shuffle_button.place(x=button_size * 22, y=button_size * 4)
+
+    global shuffles_used
+    shuffle_label = tk.Label(root, textvariable=shuffles_used)
+    shuffle_label.place(x=button_size * 23, y=button_size * 5)
 
     global restart_image
     restart_image = ImageTk.PhotoImage(Image.open("menu_images/restart.png")
                                        .resize((button_size, button_size)))
     restart_button = tk.Button(root, image=restart_image, command=restart_game,
                                height=button_size, width=button_size, relief='raised')
-    restart_button.place(x=button_size * 22, y=button_size * 4)
+    restart_button.place(x=button_size * 22, y=button_size * 6)
+
+    global exit_image
+    exit_image = ImageTk.PhotoImage(Image.open("menu_images/exit.png")
+                                       .resize((button_size, button_size)))
+    exit_button = tk.Button(root, image=exit_image, command=exit_game,
+                               height=button_size, width=button_size, relief='raised')
+    exit_button.place(x=button_size * 22, y=button_size * 8)
+
+
+def show_lose_screen():
+    global lose_screen
+    global shuffle_image
+    global restart_image
+
+    lose_screen = tk.Canvas(root, height="200", background=selectable_color)
+    lose_screen.create_text(190, 50, text="YOU LOST", fill="black", font='Helvetica 15 bold')
+
+    tk.Button(lose_screen, image=shuffle_image, command=shuffle_tiles,
+              height=button_size, width=button_size, relief='raised').place(x=25, y=125)
+
+    tk.Button(lose_screen, image=restart_image, command=restart_game,
+              height=button_size, width=button_size, relief='raised').place(x=150, y=125)
+
+    tk.Button(lose_screen, image=exit_image, command=exit_game,
+              height=button_size, width=button_size, relief='raised').place(x=275, y=125)
+
+    lose_screen.place(x=button_size * 10, y=button_size * 5)
+
+
+def show_win_screen():
+    global win_screen
+    global restart_image
+
+    win_screen = tk.Canvas(root, height="200", background=selectable_color)
+    win_screen.create_text(190, 50, text="YOU WON", fill="black", font='Helvetica 15 bold')
+
+    tk.Button(win_screen, image=restart_image, command=restart_game,
+              height=button_size, width=button_size, relief='raised').place(x=80, y=125)
+
+    tk.Button(win_screen, image=exit_image, command=exit_game,
+              height=button_size, width=button_size, relief='raised').place(x=220, y=125)
+
+    win_screen.place(x=button_size * 10, y=button_size * 5)
 
 
 def init_game():
+    global hints_used
+    global shuffles_used
+
+    hints_used = tk.IntVar()
+    shuffles_used = tk.IntVar()
+    hints_used.set(0)
+    shuffles_used.set(0)
     compute_menu_buttons()
     compute_tile_list("tile_images", ['s', 'f'])
     compute_tile_data_structure("tile_arrangements")
